@@ -1,1 +1,1 @@
-{"name":"Finance Tracker","short_name":"Finances","start_url":"/","display":"standalone","background_color":"#0f172a","theme_color":"#0f172a","lang":"en","scope":"/","orientation":"portrait-primary"}
+{"name":"Finance Tracker","short_name":"Finances","start_url":"/finance-tracker/","display":"standalone","background_color":"#0f172a","theme_color":"#0f172a","lang":"en","scope":"/finance-tracker/","orientation":"portrait-primary"}
