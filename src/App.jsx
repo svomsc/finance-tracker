@@ -1,122 +1,179 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useMemo, useState } from "react"
+import { useFinances } from "./hooks/useFinances"
+import { useCategories } from "./hooks/useCategories"
+import { useTravel } from "./hooks/useTravel"
+import { useAppLock } from "./hooks/useAppLock"
+import Navigation from "./components/Navigation"
+import Dashboard from "./components/Dashboard"
+import TransactionList from "./components/TransactionList"
+import Statistics from "./components/Statistics"
+import BudgetGoals from "./components/BudgetGoals"
+import Settings from "./components/Settings"
+import TransactionForm from "./components/TransactionForm"
+import Onboarding from "./components/Onboarding"
+import LockScreen from "./components/LockScreen"
+import BiometricPrompt from "./components/BiometricPrompt"
+import Analysis from "./components/Analysis"
 
-function App() {
-  const [count, setCount] = useState(0)
+const VALID_THEMES = ["dark", "light", "warm", "cool"]
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState("dashboard")
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("ft_theme")
+    if (saved && VALID_THEMES.includes(saved)) return saved
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light"
+  })
+
+  useEffect(() => {
+    localStorage.setItem("ft_theme", theme)
+    document.documentElement.className = `theme-${theme}`
+  }, [theme])
+
+  const {
+    transactions,
+    addTransaction,
+    deleteTransaction,
+    clearAll,
+    exportData,
+    monthlyGoal,
+    setMonthlyGoal,
+    budgets,
+    setBudgetLimit,
+  } = useFinances()
+
+  const { onboarded, categories, completeOnboarding } = useCategories()
+  const { trips, addTrip, clearTrips } = useTravel()
+  const {
+    lockEnabled,
+    method,
+    locked,
+    prompted,
+    isPlatformAuthenticatorAvailable,
+    registerWebAuthn,
+    verifyWebAuthn,
+    setPin,
+    verifyPin,
+    disableLock,
+    markPrompted,
+  } = useAppLock()
+
+  const categoryMap = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.key, c])),
+    [categories]
+  )
+
+  const tripMap = useMemo(
+    () => Object.fromEntries(trips.map((t) => [t.id, t])),
+    [trips]
+  )
+
+  if (!onboarded) {
+    return <Onboarding completeOnboarding={completeOnboarding} />
+  }
+
+  if (lockEnabled && locked) {
+    return (
+      <LockScreen method={method} verifyWebAuthn={verifyWebAuthn} verifyPin={verifyPin} />
+    )
+  }
+
+  if (!prompted) {
+    return (
+      <BiometricPrompt
+        onDone={markPrompted}
+        registerWebAuthn={registerWebAuthn}
+        setPin={setPin}
+        isPlatformAuthenticatorAvailable={isPlatformAuthenticatorAvailable}
+      />
+    )
+  }
+
+  if (activeTab === "analysis") {
+    return (
+      <Analysis
+        transactions={transactions}
+        theme={theme}
+        onClose={() => setActiveTab("dashboard")}
+      />
+    )
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="h-full w-full flex flex-col bg-app">
+      <main className="flex-1 overflow-y-auto pb-28">
+        {activeTab === "dashboard" && (
+          <Dashboard
+            transactions={transactions}
+            monthlyGoal={monthlyGoal}
+            setMonthlyGoal={setMonthlyGoal}
+            budgets={budgets}
+            theme={theme}
+            categoryMap={categoryMap}
+            trips={trips}
+          />
+        )}
+        {activeTab === "list" && (
+          <TransactionList
+            transactions={transactions}
+            deleteTransaction={deleteTransaction}
+            categoryMap={categoryMap}
+            tripMap={tripMap}
+          />
+        )}
+        {activeTab === "stats" && (
+          <Statistics
+            transactions={transactions}
+            theme={theme}
+            categoryMap={categoryMap}
+            trips={trips}
+          />
+        )}
+        {activeTab === "budgets" && (
+          <BudgetGoals
+            transactions={transactions}
+            budgets={budgets}
+            setBudgetLimit={setBudgetLimit}
+            categories={categories}
+          />
+        )}
+        {activeTab === "settings" && (
+          <Settings
+            transactions={transactions}
+            exportData={exportData}
+            clearAll={clearAll}
+            clearTrips={clearTrips}
+            theme={theme}
+            setTheme={setTheme}
+            lockEnabled={lockEnabled}
+            method={method}
+            isPlatformAuthenticatorAvailable={isPlatformAuthenticatorAvailable}
+            registerWebAuthn={registerWebAuthn}
+            setPin={setPin}
+            disableLock={disableLock}
+            onOpenAnalysis={() => setActiveTab("analysis")}
+          />
+        )}
+      </main>
 
-      <div className="ticks"></div>
+      <Navigation
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onAddClick={() => setIsFormOpen(true)}
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <TransactionForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        addTransaction={addTransaction}
+        categories={categories}
+        transactions={transactions}
+        trips={trips}
+        addTrip={addTrip}
+      />
+    </div>
   )
 }
-
-export default App
